@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model WatchItem {
+  id          String   @id @default(uuid())
+  title       String
+  type        String
+  rating      Float    @default(0)
+  experience  String   @default("")
+  status      String   @default("Not Watched")
+  favorite    Boolean  @default(false)
+  watchedDate String?
+  poster      String?
+  platform    String?
+  genre       String?
+  mood        String?
+  pinned      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AppSettings {
+  id           String  @id @default("app-settings")
+  shareEnabled Boolean @default(false)
+  shareToken   String  @unique
+  theme        String  @default("dark")
+}
