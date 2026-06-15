@@ -28,6 +28,9 @@ import {
 } from 'react-icons/fi';
 import { assetUrl, metaApi, transferApi, watchlistApi } from './services/api';
 import { emptyForm, filterLocal, SORTS, STATUSES, toFormData, TYPES, unique } from './utils/watchlist';
+import soundEngine from './utils/SoundEngine';
+import InteractiveBackground from './components/InteractiveBackground';
+import IntroLoader from './components/IntroLoader';
 import './App.css';
 
 const navItems = [
@@ -51,15 +54,70 @@ const defaultQuery = {
 
 function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('watchlist-theme') || 'dark');
+  const [showLoader, setShowLoader] = useState(() => {
+    const entered = sessionStorage.getItem('cinema-us-entered');
+    return !entered;
+  });
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('watchlist-theme', theme);
   }, [theme]);
 
+  // Global hover and click SFX
+  useEffect(() => {
+    if (!showLoader) {
+      soundEngine.init();
+    }
+
+    const handleGlobalClick = (e) => {
+      const interactive = e.target.closest('a, button, select, input[type="checkbox"], input[type="range"], .chip-btn, .reel-card');
+      if (interactive) {
+        soundEngine.playClick();
+      }
+    };
+
+    const handleGlobalMouseOver = (e) => {
+      const interactive = e.target.closest('a, button, select, input[type="checkbox"], input[type="range"], .chip-btn, .reel-card');
+      if (interactive) {
+        if (interactive !== window._lastHoveredElement) {
+          soundEngine.playHover();
+          window._lastHoveredElement = interactive;
+        }
+      }
+    };
+
+    const handleGlobalMouseOut = (e) => {
+      const interactive = e.target.closest('a, button, select, input[type="checkbox"], input[type="range"], .chip-btn, .reel-card');
+      if (interactive && interactive === window._lastHoveredElement) {
+        window._lastHoveredElement = null;
+      }
+    };
+
+    window.addEventListener('click', handleGlobalClick);
+    window.addEventListener('mouseover', handleGlobalMouseOver);
+    window.addEventListener('mouseout', handleGlobalMouseOut);
+    return () => {
+      window.removeEventListener('click', handleGlobalClick);
+      window.removeEventListener('mouseover', handleGlobalMouseOver);
+      window.removeEventListener('mouseout', handleGlobalMouseOut);
+    };
+  }, [showLoader]);
+
   return (
     <>
       <Toaster position="top-right" toastOptions={{ className: 'toast' }} />
+      <InteractiveBackground />
+      <AnimatePresence mode="wait">
+        {showLoader && (
+          <IntroLoader
+            onEnter={() => {
+              setShowLoader(false);
+              sessionStorage.setItem('cinema-us-entered', 'true');
+            }}
+          />
+        )}
+      </AnimatePresence>
       <Routes>
         <Route element={<Shell theme={theme} setTheme={setTheme} />}>
           <Route index element={<Landing />} />
@@ -76,6 +134,13 @@ function App() {
 }
 
 function Shell({ theme, setTheme }) {
+  const [audioActive, setAudioActive] = useState(() => !soundEngine.isMuted && soundEngine.isInitialized);
+
+  const toggleAudio = () => {
+    const active = soundEngine.toggle();
+    setAudioActive(active);
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -91,6 +156,18 @@ function Shell({ theme, setTheme }) {
             </NavLink>
           ))}
         </nav>
+
+        <button className={`audio-wave-btn ${audioActive ? 'active' : ''}`} onClick={toggleAudio} aria-label="Toggle sound">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <rect x="3" y="10" width="2" height="4" fill="currentColor" className="bar bar-1" />
+            <rect x="7" y="6" width="2" height="12" fill="currentColor" className="bar bar-2" />
+            <rect x="11" y="3" width="2" height="18" fill="currentColor" className="bar bar-3" />
+            <rect x="15" y="8" width="2" height="8" fill="currentColor" className="bar bar-4" />
+            <rect x="19" y="11" width="2" height="2" fill="currentColor" className="bar bar-5" />
+          </svg>
+          <span>{audioActive ? 'Mute SFX' : 'Enable SFX'}</span>
+        </button>
+
         <button className="icon-row" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
           {theme === 'dark' ? <FiSun /> : <FiMoon />}
           {theme === 'dark' ? 'Light mode' : 'Dark mode'}
@@ -107,27 +184,66 @@ function Shell({ theme, setTheme }) {
 
 function Landing() {
   const navigate = useNavigate();
+  const reels = [
+    {
+      num: 'Reel 01',
+      title: 'The Scrapbook',
+      desc: 'Explore your personal repository of cinema memories. Filter, search, and edit your journals.',
+      path: '/watchlist',
+      actionText: 'Open Archive'
+    },
+    {
+      num: 'Reel 02',
+      title: 'The Timeline',
+      desc: 'A chronological log of your watch history, showing exactly when you added and completed entries.',
+      path: '/timeline',
+      actionText: 'View Timeline'
+    },
+    {
+      num: 'Reel 03',
+      title: 'The Calendar',
+      desc: 'Visualize your movie nights plotted on a temporal map. Never forget a movie date.',
+      path: '/calendar',
+      actionText: 'Open Calendar'
+    },
+    {
+      num: 'Reel 04',
+      title: 'Preferences',
+      desc: 'Manage your settings, toggle theme, export data as JSON/CSV/PDF, or restore backups.',
+      path: '/settings',
+      actionText: 'Adjust System'
+    }
+  ];
+
   return (
     <section className="hero-page">
-      <div className="hero-orbit orbit-one">cmd</div>
-      <div className="hero-orbit orbit-two">us</div>
-      <div className="hero-orbit orbit-three">cinema</div>
-      <motion.div className="hero-copy" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}>
-        <p className="eyebrow">private film memory system</p>
+      <motion.div className="hero-copy" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+        <p className="eyebrow">// private film memory system</p>
         <h1>Cinema & Us</h1>
         <p className="subtitle">Every movie tells a story. Every memory deserves a place.</p>
-        <div className="hero-actions">
-          <button className="primary-btn" onClick={() => navigate('/watchlist')}>
-            <FiFilm /> Enter archive
-          </button>
-          <a className="ghost-btn" href="#memory-panel">Open the reel</a>
-        </div>
       </motion.div>
-      <motion.div id="memory-panel" className="memory-panel" initial={{ opacity: 0, rotate: -3 }} animate={{ opacity: 1, rotate: -1 }} transition={{ delay: 0.25 }}>
-        <span className="keycap">shift</span>
-        <span className="keycap">love</span>
-        <span className="keycap">play</span>
-      </motion.div>
+
+      <div className="reels-showcase">
+        {reels.map((r, idx) => (
+          <motion.div 
+            className="reel-card" 
+            key={idx}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: idx * 0.1 }}
+            onClick={() => navigate(r.path)}
+          >
+            <div>
+              <span className="card-number">{r.num}</span>
+              <h3>{r.title}</h3>
+              <p>{r.desc}</p>
+            </div>
+            <div className="card-action">
+              {r.actionText} <FiShuffle />
+            </div>
+          </motion.div>
+        ))}
+      </div>
     </section>
   );
 }
