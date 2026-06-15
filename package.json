@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend && npx --prefix backend prisma generate --schema=backend/prisma/schema.prisma",
-    "start": "node backend/init-db.js && npx --prefix backend prisma db push --schema=backend/prisma/schema.prisma && node backend/server.js"
+    "start": "node backend/init-db.js && node backend/server.js"
   }
 }
