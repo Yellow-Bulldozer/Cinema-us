@@ -31,8 +31,16 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/timeline', timelineRoutes);
 app.use('/api/upload', uploadRoutes);
 
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
+// Serve static frontend assets if they exist
+const frontendDist = path.join(__dirname, '../frontend/dist');
+app.use(express.static(frontendDist));
+
+// Fallback for SPA routing
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ success: false, message: 'Route not found' });
+  }
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 app.use(errorHandler);
