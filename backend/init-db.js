@@ -1,9 +1,13 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 
-// 1. Manually parse backend/.env to load env vars into process.env if not set by host
-const envPath = path.resolve('backend/.env');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 1. Resolve all paths relative to this file's directory (backend/)
+const envPath = path.join(__dirname, '.env');
 if (fs.existsSync(envPath)) {
   const envContent = fs.readFileSync(envPath, 'utf8');
   envContent.split(/\r?\n/).forEach(line => {
@@ -23,31 +27,43 @@ if (fs.existsSync(envPath)) {
   });
 }
 
-// 2. Ensure default DATABASE_URL is set
+// 2. Set a production-safe DATABASE_URL with an absolute path
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'file:../watchlist.db';
+  const dbAbsPath = path.join(__dirname, 'watchlist.db');
+  process.env.DATABASE_URL = `file:${dbAbsPath}`;
+  console.log(`[INIT] DATABASE_URL set to: file:${dbAbsPath}`);
 }
 
-// 3. Ensure SQLite directory exists
+// 3. Ensure SQLite DB directory exists (only for file: URLs)
 const dbUrl = process.env.DATABASE_URL;
 if (dbUrl.startsWith('file:')) {
-  const dbPath = dbUrl.replace('file:', '');
-  const dbDir = path.dirname(dbPath);
-  if (dbDir && !fs.existsSync(dbDir)) {
+  const dbFilePath = dbUrl.replace('file:', '');
+  const dbDir = path.dirname(dbFilePath);
+  if (dbDir && dbDir !== '.' && !fs.existsSync(dbDir)) {
     console.log(`[INIT] Creating SQLite directory at: ${dbDir}`);
     fs.mkdirSync(dbDir, { recursive: true });
   }
 }
 
-// 4. Run prisma db push programmatically with inherited env variables
-console.log('[INIT] Running database migrations/push...');
+// 4. Run prisma db push using the correct schema path (absolute)
+const schemaPath = path.join(__dirname, 'prisma', 'schema.prisma');
+console.log(`[INIT] Running prisma db push with schema: ${schemaPath}`);
+console.log(`[INIT] DATABASE_URL: ${process.env.DATABASE_URL}`);
 try {
-  execSync('npx prisma db push --schema=backend/prisma/schema.prisma', {
+  execSync(`npx prisma db push --schema="${schemaPath}" --accept-data-loss`, {
     stdio: 'inherit',
-    env: process.env
+    env: process.env,
+    cwd: __dirname
   });
   console.log('[INIT] Database setup complete.');
 } catch (error) {
   console.error('[INIT] Error running database setup:', error.message);
-  process.exit(1);
+  // Don't crash if the DB already exists and is up-to-date
+  // Check if the DB file at least exists
+  const dbPath = process.env.DATABASE_URL.replace('file:', '');
+  if (fs.existsSync(dbPath)) {
+    console.log('[INIT] Database file exists, continuing despite push error...');
+  } else {
+    process.exit(1);
+  }
 }

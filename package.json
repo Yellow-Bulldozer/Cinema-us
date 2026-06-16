@@ -2,8 +2,12 @@
   "name": "cinema-us-root",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend && npx --prefix backend prisma generate --schema=backend/prisma/schema.prisma",
+    "postinstall": "cd backend && npx prisma generate",
+    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend && cd backend && npx prisma generate",
     "start": "node backend/init-db.js && node backend/server.js"
   }
 }

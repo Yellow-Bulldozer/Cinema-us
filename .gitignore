@@ -27,6 +27,7 @@ coverage/
 # dotenv environment variables file
 .env
 .env.*.local
+!backend/.env
 
 # Build output
 dist/
@@ -51,3 +52,11 @@ Thumbs.db
 /backend/uploads/
 /backend/imports/
 /backend/posters/
+
+# SQLite database
+*.db
+*.db-journal
+
+# Dev-only files
+PUSH_INSTRUCTIONS.md
+scripts/
